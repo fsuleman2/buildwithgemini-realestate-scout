@@ -2,6 +2,8 @@
 
 > An intelligent apartment finding and real estate concierge powered by **Gemini 3.8 Flash**, the **Agent Development Kit (ADK)**, and **Google Cloud**.
 
+🌐 **Public Live Demo**: [https://frontend-5464326154.us-central1.run.app](https://frontend-5464326154.us-central1.run.app)
+
 ![RealEstate Scout Demo](assets/demo.gif)
 
 ---
@@ -177,3 +179,22 @@ To run the test suite:
 cd realestate-scout
 uv run pytest tests/unit tests/integration
 ```
+
+---
+
+### 7. Cloud Run Deployment
+
+The web chat frontend is deployed as a containerized service on Google Cloud Run and connects to the ADK agent running on Vertex AI Agent Engine:
+
+```bash
+cd frontend
+gcloud run deploy frontend \
+  --source . \
+  --region us-central1 \
+  --set-env-vars AGENT_ENGINE_RESOURCE_NAME="projects/5464326154/locations/us-central1/reasoningEngines/2811029294636072960",AGENT_DIRECTORY="app" \
+  --service-account 5464326154-compute@developer.gserviceaccount.com \
+  --allow-unauthenticated
+```
+
+- **Live Public Service URL**: [https://frontend-5464326154.us-central1.run.app](https://frontend-5464326154.us-central1.run.app)
+
