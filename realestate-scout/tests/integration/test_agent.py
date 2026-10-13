@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from google.adk.agents.run_config import RunConfig, StreamingMode
+from google.adk.artifacts import InMemoryArtifactService
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
@@ -27,9 +28,15 @@ def test_agent_stream() -> None:
     """
 
     session_service = InMemorySessionService()
+    artifact_service = InMemoryArtifactService()
 
     session = session_service.create_session_sync(user_id="test_user", app_name="test")
-    runner = Runner(agent=root_agent, session_service=session_service, app_name="test")
+    runner = Runner(
+        agent=root_agent,
+        session_service=session_service,
+        artifact_service=artifact_service,
+        app_name="test",
+    )
 
     message = types.Content(
         role="user", parts=[types.Part.from_text(text="Why is the sky blue?")]
@@ -55,3 +62,54 @@ def test_agent_stream() -> None:
             has_text_content = True
             break
     assert has_text_content, "Expected at least one message with text content"
+
+
+def test_agent_sandbox_code_execution() -> None:
+    """
+    Integration test verifying code execution inside the Agent Platform sandbox.
+    """
+    assert root_agent.code_executor is not None
+
+    session_service = InMemorySessionService()
+    artifact_service = InMemoryArtifactService()
+
+    session = session_service.create_session_sync(user_id="test_user", app_name="test")
+    runner = Runner(
+        agent=root_agent,
+        session_service=session_service,
+        artifact_service=artifact_service,
+        app_name="test",
+    )
+
+    message = types.Content(
+        role="user",
+        parts=[
+            types.Part.from_text(
+                text="Calculate 123 * 456 using python in your sandbox environment and show the result."
+            )
+        ],
+    )
+
+    events = list(
+        runner.run(
+            new_message=message,
+            user_id="test_user",
+            session_id=session.id,
+        )
+    )
+    assert len(events) > 0
+
+    combined_text = ""
+    for event in events:
+        if event.content and event.content.parts:
+            for part in event.content.parts:
+                if part.text:
+                    combined_text += part.text + " "
+                if part.inline_data and part.inline_data.data:
+                    combined_text += part.inline_data.data.decode("utf-8", errors="ignore") + " "
+                if part.code_execution_result:
+                    combined_text += str(part.code_execution_result.output) + " "
+
+    assert "56088" in combined_text or "56,088" in combined_text, (
+        f"Expected 56088 in response, got: {combined_text}"
+    )

@@ -13,6 +13,7 @@ This directory contains the ADK agent implementation for RealEstate Scout.
 - **Agent-to-User Interface (A2UI)**: Native A2UI v0.8 Basic Catalog integration via `a2ui_callback` in `app/a2ui_utils.py`, emitting structured Cards, Columns, Rows, and Images.
 - **Geocoding & Places Discovery**: `geocode_address` via Google Maps Geocoding API and `search_nearby_places` via Google Maps Places API (New).
 - **Affordability Analysis**: `calculate_move_in_costs` computing upfront cash requirements, estimated monthly expenses, and rent-to-income affordability ratios.
+- **Agent Platform Code Sandbox**: Safe Python code execution in an isolated Vertex AI Agent Engine sandbox using `AgentEngineSandboxCodeExecutor` for complex financial modeling, custom amortizations, and rent-vs-buy data analysis.
 
 ---
 
@@ -24,7 +25,7 @@ This directory contains the ADK agent implementation for RealEstate Scout.
 - **A2UI Rich UI Surfaces**: ✅ Implemented
 - **Google Maps & Places APIs**: ✅ Implemented
 - **Affordability Calculator**: ✅ Implemented (as deterministic Python function tool)
-- **Agent Platform Code Sandbox**: ⏳ *Planned, not yet implemented*
+- **Agent Platform Code Sandbox**: ✅ Implemented (`AgentEngineSandboxCodeExecutor` backed by Vertex AI Agent Engine Sandbox)
 - **Vertex AI Memory Bank**: ⏳ *Planned, not yet implemented* (Favorites and notes persist via Firestore `saved_favorites`)
 - **Lease Document RAG Engine**: ⏳ *Planned, not yet implemented*
 

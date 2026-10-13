@@ -421,14 +421,35 @@ Options:
     await chatInput.pressSequentially(query, { delay: options.typingDelay });
     await page.waitForTimeout(800);
     console.log('Sending message...');
-    await chatInput.press('Enter');
+    const sendBtn = page.locator('button.send-btn, button[type="submit"]').first();
+    const hasSendBtn = (await sendBtn.count()) > 0;
 
-    console.log(`Waiting ${options.waitMs / 1000}s for response...`);
-    await page.waitForTimeout(options.waitMs);
+    // Start waiting for response before clicking/pressing Enter
+    const responsePromise = page.waitForResponse(
+      (res) => (res.url().includes('/chat') || res.url().includes('/dev-ui')) && res.status() === 200,
+      { timeout: Math.max(options.waitMs, 45000) }
+    ).catch(() => null);
+
+    if (hasSendBtn) {
+      await sendBtn.click();
+    } else {
+      await chatInput.press('Enter');
+    }
+
+    console.log(`Waiting for response (up to ${Math.max(options.waitMs, 45000) / 1000}s)...`);
+    const resp = await responsePromise;
+    if (resp) {
+      console.log('Response received from backend! Holding for card rendering...');
+      // Give the browser time to render markdown and A2UI card components
+      await page.waitForTimeout(4000);
+    } else {
+      console.log(`Response wait timed out; falling back to static sleep.`);
+      await page.waitForTimeout(options.waitMs);
+    }
   }
 
   // Hold on the final reply so the video doesn't cut off abruptly.
-  await page.waitForTimeout(options.endPadMs);
+  await page.waitForTimeout(4000);
 
   console.log('\nFinalizing recording...');
   await page.close();

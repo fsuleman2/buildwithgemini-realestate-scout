@@ -266,6 +266,15 @@ async def chat(req: Request):
     return JSONResponse({"parts": parts})
 
 
+@app.post("/reset")
+async def reset(req: Request):
+    body = await req.json()
+    user_id = body.get("user_id") or "web-user"
+    if user_id in _contexts:
+        del _contexts[user_id]
+    return JSONResponse({"status": "ok", "message": f"Session for {user_id} reset."})
+
+
 # Serve the chat UI (keep this mount last so /chat wins).
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
 

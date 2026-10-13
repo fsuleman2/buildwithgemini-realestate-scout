@@ -14,6 +14,7 @@
 
 """Firestore tools for RealEstate Scout agent."""
 
+import base64
 import datetime
 import json
 import os
@@ -577,6 +578,127 @@ async def generate_virtual_staging_image(
         "image_url": public_url,
         "message": f"Successfully generated image and uploaded to {public_url}",
     }
+
+
+async def generate_property_tour_video(
+    property_id: str = "",
+    prompt: str = "",
+    tool_context: ToolContext | None = None,
+) -> dict[str, Any]:
+    """Generate a short video walkthrough tour for a rental property listing.
+
+    Uses Google's Omni model (gemini-omni-flash-preview) in the global region.
+    Saves the video artifact to the session using tool_context.save_artifact so it shows up
+    in the Playground's Artifacts panel, and uploads the video bytes directly to the public
+    Cloud Storage bucket, returning the public HTTPS URL.
+
+    Args:
+        property_id: Optional property ID (e.g. "prop-001") to generate a tour for.
+        prompt: Optional specific walkthrough instructions or styling (e.g. "Sunset view from the balcony and modern open kitchen").
+        tool_context: ToolContext injected by the framework to record artifacts for the Playground.
+
+    Returns:
+        A dictionary with the public Cloud Storage HTTPS URL, artifact filename, and status.
+    """
+    full_prompt = prompt
+    prop_title = "Modern apartment"
+    if property_id:
+        try:
+            prop_doc = db.collection(COLLECTION_PROPERTIES).document(property_id).get()
+            if prop_doc.exists:
+                prop_data = prop_doc.to_dict()
+                prop_title = prop_data.get("title", property_id)
+                neighborhood = prop_data.get("neighborhood", "San Francisco")
+                beds = prop_data.get("bedrooms", 1)
+                amenities = ", ".join(prop_data.get("amenities", [])[:3])
+                desc = prop_data.get("description", "")
+
+                details = f"{prop_title} in {neighborhood} ({beds} bedroom, {amenities})"
+                if prompt:
+                    full_prompt = (
+                        f"Cinematic video walkthrough tour of {details}: {prompt}. "
+                        "Smooth camera walkthrough, warm interior lighting, realistic architectural tour."
+                    )
+                else:
+                    full_prompt = (
+                        f"Cinematic video walkthrough tour of {details}. {desc[:120]}. "
+                        "Smooth slow pan across the bright living area and contemporary kitchen with natural sunlight."
+                    )
+        except Exception:
+            pass
+
+    if not full_prompt:
+        full_prompt = "Cinematic video walkthrough of a bright, modern San Francisco apartment interior with hardwood floors and large windows."
+
+    try:
+        interaction = genai_client.interactions.create(
+            model="gemini-omni-flash-preview",
+            input=full_prompt,
+            response_format={
+                "type": "video",
+                "aspect_ratio": "16:9",
+            },
+        )
+    except Exception as e:
+        return {"error": f"Failed to generate video: {str(e)}"}
+
+    video_bytes = None
+    mime_type = "video/mp4"
+
+    if interaction.output_video:
+        mime_type = interaction.output_video.mime_type or "video/mp4"
+        raw_data = interaction.output_video.data
+        if raw_data:
+            if isinstance(raw_data, str):
+                video_bytes = base64.b64decode(raw_data)
+            elif isinstance(raw_data, bytes):
+                video_bytes = raw_data
+
+    # Fallback checking interaction steps if output_video field was not populated directly
+    if not video_bytes and interaction.steps:
+        for step in interaction.steps:
+            if getattr(step, "type", None) == "model_output" and hasattr(step, "content"):
+                for content_item in step.content:
+                    if getattr(content_item, "type", None) == "video" and getattr(content_item, "data", None):
+                        data_val = content_item.data
+                        if isinstance(data_val, str):
+                            video_bytes = base64.b64decode(data_val)
+                        elif isinstance(data_val, bytes):
+                            video_bytes = data_val
+                        mime_type = getattr(content_item, "mime_type", None) or "video/mp4"
+                        break
+
+    if not video_bytes:
+        return {"error": "Video generation completed but no video bytes were returned."}
+
+    ext = "mp4"
+    prefix = f"video_{property_id}_" if property_id else "video_tour_"
+    filename = f"{prefix}{uuid.uuid4().hex[:8]}.{ext}"
+
+    # 1. Save artifact to tool_context if available (appears in Playground Artifacts panel)
+    if tool_context is not None:
+        try:
+            artifact_part = types.Part.from_bytes(data=video_bytes, mime_type=mime_type)
+            await tool_context.save_artifact(filename=filename, artifact=artifact_part)
+        except Exception:
+            pass
+
+    # 2. Upload bytes directly to public Cloud Storage bucket (without writing to a local file)
+    bucket = storage_client.bucket(BUCKET_NAME)
+    blob = bucket.blob(filename)
+    blob.upload_from_string(video_bytes, content_type=mime_type)
+
+    public_url = f"https://storage.googleapis.com/{BUCKET_NAME}/{filename}"
+
+    return {
+        "status": "success",
+        "property_id": property_id,
+        "prompt": full_prompt,
+        "filename": filename,
+        "video_url": public_url,
+        "message": f"Successfully generated video tour and uploaded to {public_url}",
+    }
+
 
 
 

@@ -14,19 +14,28 @@
 # limitations under the License.
 
 import datetime
+import json
+import logging
+import os
 from zoneinfo import ZoneInfo
+from dotenv import load_dotenv
 
 from a2ui.basic_catalog.provider import BasicCatalog
 from a2ui.schema.manager import A2uiSchemaManager
 from google.adk.agents import Agent
 from google.adk.apps import App
+from google.adk.code_executors import AgentEngineSandboxCodeExecutor
 from google.adk.models import Gemini
 from google.genai import types
+
+load_dotenv()
+logger = logging.getLogger(__name__)
 
 from app.a2ui_utils import a2ui_callback
 from app.tools import (
     add_property,
     calculate_move_in_costs,
+    generate_property_tour_video,
     generate_virtual_staging_image,
     geocode_address,
     get_property_details,
@@ -37,6 +46,31 @@ from app.tools import (
 )
 
 MODEL = "gemini-3.8-flash"
+
+def _get_code_executor() -> AgentEngineSandboxCodeExecutor | None:
+    """Resolve AgentEngineSandboxCodeExecutor from env or deployment_metadata.json."""
+    sandbox_name = os.environ.get("AGENT_ENGINE_SANDBOX_RESOURCE_NAME") or os.environ.get("SANDBOX_RESOURCE_NAME")
+    engine_name = os.environ.get("AGENT_ENGINE_RESOURCE_NAME") or os.environ.get("GOOGLE_CLOUD_AGENT_ENGINE_ID")
+
+    # Fall back to deployment_metadata.json if not in environment
+    agent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    metadata_path = os.path.join(agent_dir, "deployment_metadata.json")
+    if os.path.exists(metadata_path):
+        try:
+            with open(metadata_path, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+                if not sandbox_name and "sandbox_resource_name" in meta:
+                    sandbox_name = meta["sandbox_resource_name"]
+                if not engine_name and "remote_agent_runtime_id" in meta:
+                    engine_name = meta["remote_agent_runtime_id"]
+        except Exception as e:
+            logger.warning("Failed to load deployment_metadata.json: %s", e)
+
+    if sandbox_name:
+        return AgentEngineSandboxCodeExecutor(sandbox_resource_name=sandbox_name)
+    if engine_name:
+        return AgentEngineSandboxCodeExecutor(agent_engine_resource_name=engine_name)
+    return AgentEngineSandboxCodeExecutor()
 
 schema_manager = A2uiSchemaManager(
     version="0.8",
@@ -56,9 +90,11 @@ INSTRUCTION = schema_manager.generate_system_prompt(
         "6. Look up geographic coordinates, postal codes, and map details using `lookup_neighborhood_map_info`.\n"
         "7. Generate virtual staging and interior design concepts using `generate_virtual_staging_image`.\n"
         "8. Save properties to the user's favorites list using `save_favorite_property`.\n"
-        "9. Add new rental listings to the database using `add_property`."
+        "9. Add new rental listings to the database using `add_property`.\n"
+        "10. Generate cinematic video walkthrough tours for properties using `generate_property_tour_video`.\n"
+        "11. Run safe Python code in an isolated cloud sandbox environment (Agent Platform Sandbox) for advanced financial modeling, complex affordability calculations, custom rent vs. buy comparisons, and data analysis."
     ),
-    workflow_description="Analyze the user's request, invoke tools as needed to fetch data or generate images, and return structured UI when appropriate.",
+    workflow_description="Analyze the user's request, invoke tools or execute sandboxed Python code as needed to fetch data, compute analytics, or generate images, and return structured UI when appropriate.",
     ui_description=(
         "Keep every surface tiny and flat: ONE Card > ONE Column > a few Text rows. "
         "Never nest a Card inside a Card. "
@@ -96,9 +132,11 @@ root_agent = Agent(
         search_nearby_places,
         lookup_neighborhood_map_info,
         generate_virtual_staging_image,
+        generate_property_tour_video,
         save_favorite_property,
         add_property,
     ],
+    code_executor=_get_code_executor(),
     after_model_callback=a2ui_callback,
 )
 
