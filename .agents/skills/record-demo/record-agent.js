@@ -235,6 +235,7 @@ function parseArgs() {
     frame: true,               // draw the branded frame
     title: 'Gemini World Tour',
     headless: true,
+    showMap: false,
     viewport: { width: 1280, height: 800 },
     preRollMs: 2500,           // hold on the empty UI before typing
     endPadMs: 2000,            // hold on the final reply before cutting
@@ -264,6 +265,8 @@ function parseArgs() {
       options.musicVolume = parseFloat(args[++i]);
     } else if (arg === '--title' && i + 1 < args.length) {
       options.title = args[++i];
+    } else if (arg === '--show-map') {
+      options.showMap = true;
     } else if (arg === '--no-frame') {
       options.frame = false;
     } else if (arg === '--headed') {
@@ -411,6 +414,42 @@ Options:
     process.exit(1);
   }
   const chatInput = page.locator(inputSelector).first();
+
+  if (options.showMap) {
+    const mapBtn = page.locator('#toggleMapBtn');
+    if ((await mapBtn.count()) > 0) {
+      console.log('\n[Map Feature] Opening interactive SF neighborhood map drawer...');
+      await mapBtn.click();
+      await page.waitForTimeout(2000);
+      const marker = page.locator('.leaflet-marker-icon').first();
+      if ((await marker.count()) > 0) {
+        console.log('[Map Feature] Clicking neighborhood pin on Leaflet map...');
+        await marker.click();
+        await page.waitForTimeout(2500);
+        const scoutBtn = page.locator('button:has-text("Scout rentals here")').first();
+        if ((await scoutBtn.count()) > 0) {
+          console.log('[Map Feature] Clicking "Scout rentals here" to trigger rental search...');
+          const responsePromise = page.waitForResponse(
+            (res) => (res.url().includes('/chat') || res.url().includes('/dev-ui')) && res.status() === 200,
+            { timeout: 45000 }
+          ).catch(() => null);
+          await scoutBtn.click();
+          console.log('[Map Feature] Waiting for rental listings from backend...');
+          const resp = await responsePromise;
+          if (resp) {
+            console.log('[Map Feature] Search response received! Rendering listings...');
+            await page.waitForTimeout(5000);
+          }
+        } else {
+          await mapBtn.click();
+          await page.waitForTimeout(1000);
+        }
+      } else {
+        await mapBtn.click();
+        await page.waitForTimeout(1000);
+      }
+    }
+  }
 
   for (let i = 0; i < options.queries.length; i++) {
     const query = options.queries[i];

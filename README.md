@@ -10,6 +10,9 @@
 
 ![RealEstate Scout Demo](assets/demo.gif)
 
+*Demonstrating the interactive Leaflet SF neighborhood map drawer, neighborhood pin inspection, automated rental scouting, rich A2UI apartment cards with action chips, and upfront move-in financial calculations.*
+
+
 ---
 
 ## 🌟 What RealEstate Scout Does
