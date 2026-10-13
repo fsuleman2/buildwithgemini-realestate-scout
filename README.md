@@ -4,6 +4,10 @@
 
 🌐 **Public Live Demo**: [https://frontend-5464326154.us-central1.run.app](https://frontend-5464326154.us-central1.run.app)
 
+---
+
+## 🎬 Application Demo
+
 ![RealEstate Scout Demo](assets/demo.gif)
 
 ---
