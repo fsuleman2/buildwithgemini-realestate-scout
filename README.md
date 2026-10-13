@@ -1,115 +1,119 @@
 # RealEstate Scout 🏠🔍
 
-> An intelligent apartment finding and real estate assistant powered by **Gemini 3.8 Flash**, the **Agent Development Kit (ADK)**, and **Google Cloud**.
+> An intelligent apartment finding and real estate concierge powered by **Gemini 3.8 Flash**, the **Agent Development Kit (ADK)**, and **Google Cloud**.
 
-RealEstate Scout helps apartment hunters search, compare, evaluate, and virtually stage rental properties. Grounded in a real Google Cloud Firestore property catalog, it combines real-time criteria filtering, geospatial exploration with Google Maps, move-in affordability calculations, AI-powered virtual staging using Gemini image generation, and rich visual cards via the Agent-to-User Interface (A2UI) specification.
+![RealEstate Scout Demo](assets/demo.gif)
 
 ---
 
 ## 🌟 What RealEstate Scout Does
 
-RealEstate Scout moves beyond traditional keyword search engines by acting as an end-to-end rental concierge. Through conversational natural language or structured cards, users can:
+RealEstate Scout is a conversational real estate and apartment hunting agent. Grounded in a live Google Cloud Firestore catalog of San Francisco rentals, it helps apartment seekers discover, evaluate, and virtually stage rental properties:
 
-- **Filter & Discover Listings**: Search available apartments across San Francisco by monthly rent ceiling, bedroom count, specific neighborhoods, and pet friendliness.
-- **Inspect Deep Unit Specs**: Pull comprehensive specifications including square footage, bathrooms, amenities lists, building descriptions, and in-person tour availability.
-- **Assess Move-In Costs & Affordability**: Calculate upfront cash requirements (first month's rent, security deposit, pet deposit), estimated monthly utility expenses, and evaluate applicant gross income against the standard 3x rent affordability threshold.
-- **Explore Neighborhoods & Amenities**: Geocode addresses with the Google Maps Geocoding API and discover nearby points of interest (transit stations, cafes, restaurants, grocery stores, parks, gyms) using the Google Maps Places API (New).
-- **Visualize Virtual Staging**: Generate high-fidelity interior design and virtual staging concepts for unfurnished or staged rooms using Vertex AI image generation (`gemini-3.1-flash-lite-image`), hosted directly on Google Cloud Storage.
-- **Save Favorites**: Bookmark favorite rental listings with custom user notes in Firestore.
-- **Interact via Agent-First UI (A2UI)**: Receive structured response cards featuring rich layouts and inline images rather than plain-text walls of text.
+- **Filter & Search Rental Catalog**: Query available apartments by price ceiling, bedroom count, specific neighborhoods, and pet friendliness using structured database filtering.
+- **Inspect Full Listing Specifications**: Retrieve detailed unit specifications including rent, square footage, bathrooms, amenities list, detailed unit descriptions, and in-person tour availability.
+- **Calculate Upfront Costs & Affordability**: Compute complete upfront move-in cash requirements (first month's rent, security deposit, pet deposit), estimated monthly utility costs, and evaluate affordability against standard 3x income qualification rules.
+- **Neighborhood Geocoding & Places Discovery**: Resolve addresses to coordinates and discover nearby points of interest (cafes, dining, grocery stores, transit stations, parks, gyms) via the Google Maps Places API (New) and OpenStreetMap Nominatim.
+- **AI Virtual Staging & Visuals**: Generate photorealistic interior design and virtual staging concepts for rooms using Vertex AI image generation (`imagen-3.0-generate-002`), automatically uploaded and served via Google Cloud Storage.
+- **Cinematic Property Tour Videos**: Generate dynamic video walkthrough previews for listings using Vertex AI video generation (`veo-2.0-generate-001`).
+- **Save Favorite Listings**: Bookmark properties with custom user notes directly in Firestore.
+- **Agent-to-User Interface (A2UI)**: Return rich visual display cards, columns, rows, and images following the A2UI v0.8 Basic Catalog specification.
+- **Modern Web Chat Experience**: An interactive web frontend featuring a Leaflet OpenStreetMap neighborhood drawer, a persistent shortlist drawer with markdown export, comparison matrix modal, media lightbox, GFM table rendering, and quick-filter ribbon.
 
 ---
 
 ## ☁️ Google Cloud Services & Tools Wired Up
 
-The agent's capabilities are backed by real Google Cloud services and Python tools defined in `realestate-scout/app/tools.py` and `realestate-scout/app/agent.py`:
+The capabilities below are backed by real Google Cloud services and tools implemented in `realestate-scout/app/tools.py`, `realestate-scout/app/agent.py`, and `agents-cli-manifest.yaml`:
 
-| Service / Capability | Implementation Details | Active Tools / Components |
+| Service / Tool | Implementation in Codebase | Registered Function / Tool |
 |---|---|---|
-| **Google Cloud Firestore** | NoSQL database hosting the live rental catalog and user bookmarks. | `search_properties`: Filters units by price, beds, neighborhood, pets.<br/>`get_property_details`: Fetches full unit specifications by ID.<br/>`add_property`: Creates new property listings.<br/>`save_favorite_property`: Saves properties and notes to `saved_favorites`. |
-| **Vertex AI Image Generation** | Generates photorealistic virtual room stagings and decor styles using `gemini-3.1-flash-lite-image`. | `generate_virtual_staging_image`: Generates interior design concepts grounded in property context and records ADK session artifacts. |
-| **Google Cloud Storage (GCS)** | Public cloud storage bucket (`realestate-scout-assets`) for hosting generated media. | Automatically uploads generated staging images directly to Cloud Storage and returns public HTTPS URLs for rendering. |
-| **Agent-to-User Interface (A2UI)** | Emits structured JSON surfaces following the A2UI v0.8 Basic Catalog. | `a2ui_callback` in `app/a2ui_utils.py` validates components (`Card`, `Column`, `Row`, `Text`, `Image`) and rewraps payloads for native rendering. |
-| **Google Maps Geocoding API** | Converts street addresses into geographic coordinates. | `geocode_address`: Direct REST client converting address strings to latitude/longitude. |
-| **Google Maps Places API (New)** | Nearby search using spatial circle restrictions and field masks. | `search_nearby_places`: Finds nearby transit, groceries, gyms, and dining within a radius. |
-| **OpenStreetMap Nominatim API** | Boundary and postal code lookup for neighborhoods. | `lookup_neighborhood_map_info`: Retrieves postal codes, bounding boxes, and map links. |
-| **Financial Affordability Calculator** | Python computation tool for tenant qualification. | `calculate_move_in_costs`: Calculates upfront cash needs, monthly expenses, and rent-to-income ratios. |
+| **Google Cloud Firestore** | NoSQL database hosting the live `properties` catalog and `saved_favorites` collections. | `search_properties`<br/>`get_property_details`<br/>`add_property`<br/>`save_favorite_property` |
+| **Google Cloud Storage (GCS)** | Object storage bucket (`realestate-scout-assets`) for storing and serving generated media assets. | Integrated into `generate_virtual_staging_image` and `generate_property_tour_video` |
+| **Vertex AI Image Generation (Imagen)** | Generates photorealistic virtual room staging concepts using `imagen-3.0-generate-002`. | `generate_virtual_staging_image` |
+| **Vertex AI Video Generation (Veo)** | Generates cinematic preview walkthrough tours using `veo-2.0-generate-001`. | `generate_property_tour_video` |
+| **Vertex AI Agent Engine Code Sandbox** | Isolated cloud sandbox environment for executing dynamic Python code for financial modeling and data analysis. | `AgentEngineSandboxCodeExecutor` configured on `root_agent` |
+| **Google Maps Places API (New)** | Spatial circle radius search for nearby transit, cafes, groceries, and dining. | `search_nearby_places` |
+| **OpenStreetMap Nominatim** | Address geocoding and geographic boundary/postcode resolution. | `geocode_address`<br/>`lookup_neighborhood_map_info` |
+| **Financial Affordability Calculator** | Python computation tool for move-in cash requirements, deposits, and income ratios. | `calculate_move_in_costs` |
+| **Agent-to-User Interface (A2UI)** | Emits structured JSON surfaces following the A2UI v0.8 Basic Catalog. | `a2ui_callback` in `app/a2ui_utils.py` |
 
 ---
 
 ## 📋 Planned vs. Implemented Capabilities
 
-To maintain full transparency between the initial design in `project_brief.md` and the actual codebase:
+To maintain full transparency with the initial design in `project_brief.md`:
 
-| Feature | Brief Status | Codebase Status | Notes |
+| Capability | Initial Brief | Codebase Status | Description |
 |---|---|---|---|
-| **Firestore Rental Catalog** | Planned | ✅ **Implemented** | Active in `app/tools.py` with multi-field search and detail lookups. |
-| **Cloud Storage Asset Hosting** | Planned | ✅ **Implemented** | Active in `app/tools.py` uploading to `realestate-scout-assets`. |
-| **Virtual Staging Image Gen** | Planned | ✅ **Implemented** | Active via Vertex AI `gemini-3.1-flash-lite-image`. |
-| **A2UI Rich UI Cards** | Planned | ✅ **Implemented** | Active via `a2ui_callback` and rendered in the web frontend. |
+| **Firestore Rental Catalog** | Planned | ✅ **Implemented** | Live querying and detail retrieval from Firestore `properties`. |
+| **Cloud Storage Asset Hosting** | Planned | ✅ **Implemented** | Auto-uploads generated media to `realestate-scout-assets`. |
+| **Virtual Staging Image Gen** | Planned | ✅ **Implemented** | Active via Vertex AI `imagen-3.0-generate-002`. |
+| **Property Video Tours** | Planned | ✅ **Implemented** | Active via Vertex AI `veo-2.0-generate-001`. |
+| **A2UI Rich UI Cards** | Planned | ✅ **Implemented** | Emits A2UI v0.8 cards rendered natively in web chat. |
 | **Google Maps & Places APIs** | Planned (stretch) | ✅ **Implemented** | Active via `geocode_address` and `search_nearby_places`. |
-| **Affordability Calculations** | Planned | ✅ **Implemented** | Implemented as a deterministic Python function tool (`calculate_move_in_costs`). |
-| **Agent Platform Code Sandbox** | Planned | ⏳ *Planned, not yet implemented* | Financial calculations currently run via a native Python function tool rather than an isolated Agent Platform code sandbox. |
-| **Vertex AI Memory Bank** | Planned | ⏳ *Planned, not yet implemented* | Favorites and notes are saved directly to the Firestore `saved_favorites` collection; cross-session semantic extraction via Vertex AI Memory Bank is not yet wired up. |
+| **Move-In Cost Calculations** | Planned | ✅ **Implemented** | Active via `calculate_move_in_costs`. |
+| **Agent Engine Code Sandbox** | Planned | ✅ **Implemented** | Active via `AgentEngineSandboxCodeExecutor`. |
+| **Vertex AI Memory Bank** | Planned | ⏳ *Planned, not yet implemented* | Favorites and notes persist directly in Firestore `saved_favorites`. Cross-session semantic Memory Bank extraction is not yet wired up. |
 | **Lease Document RAG Engine** | Planned (stretch) | ⏳ *Planned, not yet implemented* | Grounded document parsing over PDF lease agreements was identified as an optional stretch goal and is not yet implemented. |
 
 ---
 
-## 🏗️ Architecture & Project Structure
+## 🏗️ Project Architecture
 
 ```text
 BuildWithGemini/
+├── assets/
+│   ├── build-with-gemini-banner.png
+│   └── demo.gif                   # Looping recording of the running app
 ├── frontend/
-│   ├── Dockerfile                 # Containerfile for Cloud Run deployment
+│   ├── Dockerfile                 # Container definition for frontend deployment
 │   ├── main.py                    # FastAPI proxy communicating via A2A protocol
-│   ├── requirements.txt           # Frontend dependencies (fastapi, a2a-sdk, httpx)
+│   ├── requirements.txt           # Frontend dependencies (fastapi, httpx, uvicorn)
 │   └── static/
-│       └── index.html             # Responsive chat UI with native A2UI mini-renderer
-├── project_brief.md               # Initial design brief and tool-coverage checklist
+│       └── index.html             # Web chat UI with Leaflet map drawer, shortlist, and A2UI renderer
+├── project_brief.md               # Initial design brief and tool planning
 └── realestate-scout/
-    ├── agents-cli-manifest.yaml   # Agent manifest configuration (acli 1.4.0, A2A enabled)
-    ├── pyproject.toml             # Python project dependencies (google-adk, a2ui, firestore)
-    ├── seed_firestore.py          # Seeding script for sample SF rental listings
-    ├── app/
-    │   ├── agent.py               # Core ADK root_agent definition with Gemini 3.8 Flash
-    │   ├── tools.py               # Firestore, Cloud Storage, Maps, and Image Gen tools
-    │   ├── a2ui_utils.py          # After-model callback for A2UI schema wrapping & sanitization
-    │   ├── fast_api_app.py        # Local FastAPI agent runtime server with A2A routes
-    │   └── app_utils/             # Service registry, A2A routes, and adapter utilities
-    ├── deployment/                # Terraform deployment configurations
-    └── tests/                     # Unit and integration test suites
+    ├── agents-cli-manifest.yaml   # ADK agent manifest (acli 1.4.0, A2A protocol)
+    ├── pyproject.toml             # Python project dependencies
+    ├── seed_firestore.py          # Script seeding SF rental listings into Firestore
+    └── app/
+        ├── agent.py               # Core ADK root_agent definition with Gemini 3.8 Flash
+        ├── tools.py               # Firestore, Cloud Storage, Maps, and Vertex AI tools
+        ├── a2ui_utils.py          # After-model callback formatting A2UI payloads
+        ├── fast_api_app.py        # Local FastAPI agent runtime server with A2A routes
+        └── app_utils/             # Service registry, A2A routes, and adapter utilities
 ```
 
 ---
 
-## 🚀 Local Setup & Running Instructions
+## 🚀 Local Setup & Run Instructions
 
-Follow these steps to run RealEstate Scout locally on your development machine.
+Follow these steps to run RealEstate Scout locally:
 
-### Prerequisites
+### 1. Prerequisites
 
 - **Python 3.11+** installed
-- **uv** (recommended) or **pip**
-- **Google Cloud SDK (`gcloud`)** installed and authenticated:
+- **uv** or **pip**
+- **Google Cloud SDK (`gcloud`)** authenticated with an active project:
   ```bash
   gcloud auth login
   gcloud auth application-default login
   gcloud config set project <YOUR_GCP_PROJECT_ID>
   ```
-- Enabled Google Cloud APIs: Vertex AI, Cloud Storage, Firestore, and Google Maps Platform (Geocoding API & Places API New).
+- Required Google Cloud APIs enabled: Vertex AI, Cloud Storage, Firestore, and Google Maps Platform (Places API New).
 
 ---
 
-### 1. Environment Configuration
+### 2. Configure Environment
 
-In `realestate-scout/`, create a `.env` file based on `.env.example`:
+In the `realestate-scout/` directory, configure your `.env` file:
 
 ```bash
 cd realestate-scout
-cp .env.example .env
 ```
 
-Ensure the following variables are set:
+Create `.env` containing:
 
 ```env
 GOOGLE_GENAI_USE_VERTEXAI=true
@@ -120,42 +124,35 @@ GOOGLE_MAPS_API_KEY=your-google-maps-api-key
 
 ---
 
-### 2. Install Dependencies & Seed Firestore
+### 3. Install Dependencies & Seed Firestore
 
-From the `realestate-scout` directory:
+From the `realestate-scout/` directory:
 
 ```bash
-# Install dependencies with uv
+# Install dependencies
 uv sync
 
-# Seed the Firestore database with sample San Francisco rental properties
+# Seed sample San Francisco rental properties into Firestore
 uv run python seed_firestore.py
 ```
 
 ---
 
-### 3. Run the Agent Locally
+### 4. Start the Agent Backend
 
-You can run the agent in development mode using `agents-cli`:
-
-```bash
-# Launch the local ADK developer environment
-agents-cli playground
-```
-
-Or run the agent backend directly via uvicorn:
+Start the ADK agent runtime in development mode:
 
 ```bash
 uv run python -m app.fast_api_app
 ```
 
-The agent backend will start on port `8000`.
+The agent backend listens locally on port `8000` exposing the standard A2A agent protocol.
 
 ---
 
-### 4. Run the Web Chat Frontend (A2A Proxy)
+### 5. Start the Web Chat Frontend
 
-In a separate terminal, start the FastAPI chat frontend:
+In a separate terminal, launch the FastAPI web frontend:
 
 ```bash
 cd frontend
@@ -168,23 +165,15 @@ export AGENT_DIRECTORY="app"
 python main.py
 ```
 
-The frontend proxy will start on port `8080`.
-
-Open your web browser and navigate to `localhost:8080` (or `localhost:8000/dev-ui/?app=app` for the ADK dev UI) to interact with RealEstate Scout!
+The frontend proxy listens locally on port `8080` (or `PORT=8085` if configured). Navigate to the local port in your browser to interact with RealEstate Scout!
 
 ---
 
-## 🧪 Testing
+### 6. Run Tests
 
-To run the unit and integration test suites:
+To run the test suite:
 
 ```bash
 cd realestate-scout
 uv run pytest tests/unit tests/integration
-```
-
-To run code quality and lint checks:
-
-```bash
-agents-cli lint
 ```
